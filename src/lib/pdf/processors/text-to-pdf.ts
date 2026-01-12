@@ -195,17 +195,17 @@ async function loadFont(fontId: string, url: string): Promise<ArrayBuffer> {
 
   // Fetch from URL
   const response = await fetch(url);
-  
+
   if (!response.ok) {
     throw new Error(`Failed to load font: ${fontId}`);
   }
 
   const buffer = await response.arrayBuffer();
-  
+
   // Cache in memory and IndexedDB
   fontCache.set(fontId, buffer);
   await saveFontToDB(fontId, buffer);
-  
+
   return buffer;
 }
 
@@ -216,10 +216,10 @@ export function hexToRgb(hex: string): TextColor {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? {
-        r: parseInt(result[1], 16) / 255,
-        g: parseInt(result[2], 16) / 255,
-        b: parseInt(result[3], 16) / 255,
-      }
+      r: parseInt(result[1], 16) / 255,
+      g: parseInt(result[2], 16) / 255,
+      b: parseInt(result[3], 16) / 255,
+    }
     : { r: 0, g: 0, b: 0 };
 }
 
@@ -241,7 +241,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
     };
 
     const hasDirectText = pdfOptions.directText && pdfOptions.directText.trim().length > 0;
-    
+
     if (files.length < 1 && !hasDirectText) {
       return this.createErrorOutput(
         PDFErrorCode.INVALID_OPTIONS,
@@ -254,7 +254,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -277,12 +277,12 @@ export class TextToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(20, 'Loading font...');
 
       const pdfDoc = await pdfLib.PDFDocument.create();
-      
+
       // Get selected font config
       const fontConfig = AVAILABLE_FONTS.find(f => f.id === pdfOptions.fontId) || AVAILABLE_FONTS[0];
-      
+
       let font: Awaited<ReturnType<typeof pdfDoc.embedFont>>;
-      
+
       if (fontConfig.type === 'standard') {
         // Use standard PDF fonts (no embedding, small file size)
         const standardFontMap: Record<string, keyof typeof pdfLib.StandardFonts> = {
@@ -296,10 +296,10 @@ export class TextToPDFProcessor extends BasePDFProcessor {
         // Load Noto font with fontkit
         const fontkit = await import('@pdf-lib/fontkit');
         pdfDoc.registerFontkit(fontkit.default || fontkit);
-        
+
         this.updateProgress(30, 'Downloading font...');
         const fontBytes = await loadFont(fontConfig.id, (fontConfig as { url: string }).url);
-        
+
         this.updateProgress(40, 'Embedding font...');
         font = await pdfDoc.embedFont(fontBytes, { subset: false });
       }
@@ -310,7 +310,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
 
       this.updateProgress(90, 'Saving PDF...');
 
-      const pdfBytes = await pdfDoc.save();
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -340,7 +340,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
   ): Promise<void> {
     let pageWidth: number;
     let pageHeight: number;
-    
+
     if (options.pageSize === 'CUSTOM' && options.customWidth && options.customHeight) {
       pageWidth = options.customWidth;
       pageHeight = options.customHeight;
@@ -349,7 +349,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
       pageWidth = baseSize.width;
       pageHeight = baseSize.height;
     }
-    
+
     if (options.orientation === 'landscape') {
       [pageWidth, pageHeight] = [pageHeight, pageWidth];
     }
@@ -384,7 +384,7 @@ export class TextToPDFProcessor extends BasePDFProcessor {
 
         const testLine = currentLine ? `${currentLine} ${word}` : word;
         let testWidth: number;
-        
+
         try {
           testWidth = font.widthOfTextAtSize(testLine, fontSize);
         } catch {

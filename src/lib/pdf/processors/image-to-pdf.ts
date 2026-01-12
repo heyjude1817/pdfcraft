@@ -80,7 +80,7 @@ const SUPPORTED_MIME_TYPES = [
  * Supported file extensions
  */
 const SUPPORTED_EXTENSIONS = [
-  '.jpg', '.jpeg', '.png', '.webp', '.bmp', 
+  '.jpg', '.jpeg', '.png', '.webp', '.bmp',
   '.tiff', '.tif', '.svg', '.heic', '.heif'
 ];
 
@@ -130,7 +130,7 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -156,7 +156,7 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
 
         const file = files[i];
         const fileProgress = 10 + (i * progressPerFile);
-        
+
         this.updateProgress(
           fileProgress,
           `Processing image ${i + 1} of ${files.length}: ${file.name}`
@@ -176,7 +176,7 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(95, 'Saving PDF...');
 
       // Save the PDF
-      const pdfBytes = await pdfDoc.save();
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -206,7 +206,7 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
     if (SUPPORTED_MIME_TYPES.includes(file.type)) {
       return true;
     }
-    
+
     // Check extension as fallback
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     return SUPPORTED_EXTENSIONS.includes(ext);
@@ -287,16 +287,16 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
           const canvas = document.createElement('canvas');
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
-          
+
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             throw new Error('Failed to get canvas context');
           }
-          
+
           // Scale the context for higher quality rendering
           ctx.scale(scale, scale);
           ctx.drawImage(img, 0, 0);
-          
+
           // Convert to PNG blob
           const pngBlob = await new Promise<Blob>((res, rej) => {
             canvas.toBlob(
@@ -304,11 +304,11 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
               'image/png'
             );
           });
-          
+
           // Embed PNG
           const pngArrayBuffer = await pngBlob.arrayBuffer();
           const pngImage = await pdfDoc.embedPng(new Uint8Array(pngArrayBuffer));
-          
+
           URL.revokeObjectURL(url);
           resolve(pngImage);
         } catch (error) {
@@ -366,7 +366,7 @@ export class ImageToPDFProcessor extends BasePDFProcessor {
       // Match page orientation to image orientation
       const imageIsLandscape = imageWidth > imageHeight;
       const pageIsLandscape = pageWidth > pageHeight;
-      
+
       if (imageIsLandscape !== pageIsLandscape && typeof options.pageSize === 'string' && options.pageSize !== 'FIT') {
         [pageWidth, pageHeight] = [pageHeight, pageWidth];
       }

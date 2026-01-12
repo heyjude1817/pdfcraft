@@ -104,7 +104,7 @@ export class BookmarkProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(80, 'Saving PDF...');
-      const pdfBytes = await sourcePdf.save();
+      const pdfBytes = await sourcePdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -130,37 +130,37 @@ export class BookmarkProcessor extends BasePDFProcessor {
     // Get the PDF's catalog and create outline structure
     const context = pdf.context;
     const catalog = pdf.catalog;
-    
+
     // Remove existing outlines if any
     catalog.delete(pdfLib.PDFName.of('Outlines'));
-    
+
     if (bookmarks.length === 0) return;
-    
+
     // Create the outline dictionary
     const outlineDict = context.obj({
       Type: 'Outlines',
       Count: this.countBookmarks(bookmarks),
     });
     const outlineRef = context.register(outlineDict);
-    
+
     // Build the bookmark tree
     const { first, last } = await this.buildOutlineTree(
-      pdf, 
-      pdfLib, 
-      context, 
-      bookmarks, 
+      pdf,
+      pdfLib,
+      context,
+      bookmarks,
       outlineRef
     );
-    
+
     if (first && last) {
       outlineDict.set(pdfLib.PDFName.of('First'), first);
       outlineDict.set(pdfLib.PDFName.of('Last'), last);
     }
-    
+
     // Set the outlines in the catalog
     catalog.set(pdfLib.PDFName.of('Outlines'), outlineRef);
   }
-  
+
   private countBookmarks(bookmarks: BookmarkItem[]): number {
     let count = 0;
     for (const bookmark of bookmarks) {
@@ -171,7 +171,7 @@ export class BookmarkProcessor extends BasePDFProcessor {
     }
     return count;
   }
-  
+
   private async buildOutlineTree(
     pdf: any,
     pdfLib: any,
@@ -182,19 +182,19 @@ export class BookmarkProcessor extends BasePDFProcessor {
     if (bookmarks.length === 0) {
       return { first: null, last: null };
     }
-    
+
     const pages = pdf.getPages();
     const outlineItems: any[] = [];
-    
+
     // Create outline item dictionaries
     for (const bookmark of bookmarks) {
       const pageIndex = Math.max(0, Math.min(bookmark.pageNumber - 1, pages.length - 1));
       const page = pages[pageIndex];
       const pageRef = pdf.getPage(pageIndex).ref;
-      
+
       // Get page dimensions for destination
       const { height } = page.getSize();
-      
+
       // Create destination array [pageRef, /XYZ, left, top, zoom]
       const destArray = context.obj([
         pageRef,
@@ -203,21 +203,21 @@ export class BookmarkProcessor extends BasePDFProcessor {
         height,
         null
       ]);
-      
+
       // Create the outline item dictionary
       const itemDict = context.obj({
         Title: pdfLib.PDFHexString.fromText(bookmark.title),
         Parent: parentRef,
         Dest: destArray,
       });
-      
+
       const itemRef = context.register(itemDict);
-      
+
       // Handle children recursively
       if (bookmark.children && bookmark.children.length > 0) {
         const childCount = this.countBookmarks(bookmark.children);
         itemDict.set(pdfLib.PDFName.of('Count'), pdfLib.PDFNumber.of(childCount));
-        
+
         const { first: childFirst, last: childLast } = await this.buildOutlineTree(
           pdf,
           pdfLib,
@@ -225,20 +225,20 @@ export class BookmarkProcessor extends BasePDFProcessor {
           bookmark.children,
           itemRef
         );
-        
+
         if (childFirst && childLast) {
           itemDict.set(pdfLib.PDFName.of('First'), childFirst);
           itemDict.set(pdfLib.PDFName.of('Last'), childLast);
         }
       }
-      
+
       outlineItems.push({ dict: itemDict, ref: itemRef });
     }
-    
+
     // Link siblings (Prev/Next)
     for (let i = 0; i < outlineItems.length; i++) {
       const item = outlineItems[i];
-      
+
       if (i > 0) {
         item.dict.set(pdfLib.PDFName.of('Prev'), outlineItems[i - 1].ref);
       }
@@ -246,7 +246,7 @@ export class BookmarkProcessor extends BasePDFProcessor {
         item.dict.set(pdfLib.PDFName.of('Next'), outlineItems[i + 1].ref);
       }
     }
-    
+
     return {
       first: outlineItems[0]?.ref || null,
       last: outlineItems[outlineItems.length - 1]?.ref || null,

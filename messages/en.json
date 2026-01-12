@@ -157,7 +157,7 @@
       "general": {
         "whatIs": {
           "question": "What is PDFCraft?",
-          "answer": "PDFCraft is a free, privacy-focused PDF toolkit that runs entirely in your browser. It offers 67+ professional tools for editing, converting, merging, splitting, and securing PDF files without uploading them to any server."
+          "answer": "PDFCraft is a free, privacy-focused PDF toolkit that runs entirely in your browser. It offers 80+ professional tools for editing, converting, merging, splitting, and securing PDF files without uploading them to any server."
         },
         "isFree": {
           "question": "Is PDFCraft really free?",
@@ -499,13 +499,32 @@
       "uploadDescription": "Drag and drop a PDF file here, or click to browse.",
       "optionsTitle": "N-Up Options",
       "pagesPerSheet": "Pages per Sheet",
+      "customLayout": "Custom...",
+      "columns": "Columns",
+      "rows": "Rows",
       "pageSize": "Output Page Size",
       "orientation": "Orientation",
+      "layoutDirection": "Layout Direction",
+      "layoutHorizontal": "Horizontal (side by side)",
+      "layoutVertical": "Vertical (stacked)",
+      "layoutHorizontalDesc": "Pages are placed side by side (left-right)",
+      "layoutVerticalDesc": "Pages are stacked top to bottom",
       "useMargins": "Add margins and gutters",
       "addBorder": "Add border around pages",
       "borderColor": "Border Color",
-      "previewInfo": "{pages} pages will be arranged into {sheets} sheet(s) with {perSheet} pages per sheet.",
+      "layoutPreview": "Layout Preview",
+      "gridLayoutInfo": "Grid: {cols} × {rows} ({perSheet} pages per sheet)",
+      "previewInfo": "{pages} pages → {sheets} output sheet(s)",
+      "readingOrder": "Reading order",
+      "topToBottom": "↓ Top to bottom",
+      "leftToRight": "→ Left to right, then ↓ down",
       "createButton": "Create {pages}-Up PDF",
+      "createCustomButton": "Create {cols}×{rows} PDF",
+      "gridLabel": "Grid Layout",
+      "outputPages": "Output Sheets",
+      "pagesLabel": "pages",
+      "sheetsLabel": "sheets",
+      "perSheetLabel": "per sheet",
       "successMessage": "N-Up PDF created successfully! Click the download button to save your file."
     },
     "splitPdf": {
@@ -1295,7 +1314,24 @@
       "successMessage": "Page numbers added successfully!",
       "zoomIn": "Zoom In",
       "zoomOut": "Zoom Out",
-      "zoomReset": "Reset Zoom"
+      "zoomReset": "Reset Zoom",
+      "oddEvenTitle": "Odd/Even Page Settings",
+      "pageMode": "Page Mode",
+      "modeAll": "All pages",
+      "modeOddOnly": "Odd pages only (1, 3, 5...)",
+      "modeEvenOnly": "Even pages only (2, 4, 6...)",
+      "modeDifferent": "Different positions for odd/even",
+      "oddPosition": "Odd Page Position",
+      "evenPosition": "Even Page Position",
+      "oddPositionHint": "Pages 1, 3, 5...",
+      "evenPositionHint": "Pages 2, 4, 6...",
+      "differentModeHint": "This mode is useful for double-sided printing where you want page numbers on the outer edge of each page.",
+      "posBottomLeft": "Bottom Left",
+      "posBottomCenter": "Bottom Center",
+      "posBottomRight": "Bottom Right",
+      "posTopLeft": "Top Left",
+      "posTopCenter": "Top Center",
+      "posTopRight": "Top Right"
     },
     "watermark": {
       "uploadLabel": "Upload PDF File",

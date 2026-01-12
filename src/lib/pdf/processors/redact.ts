@@ -95,7 +95,7 @@ export async function applyRedactions(
     const pageCount = pages.length;
 
     // Default redaction color (black)
-    const redactionColor = options.color 
+    const redactionColor = options.color
       ? rgb(options.color.r / 255, options.color.g / 255, options.color.b / 255)
       : rgb(0, 0, 0);
 
@@ -144,7 +144,7 @@ export async function applyRedactions(
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const fontSize = Math.min(area.height * 0.6, 12);
         const textWidth = font.widthOfTextAtSize(replacementText, fontSize);
-        
+
         // Center the text in the redaction box
         const textX = area.x + (area.width - textWidth) / 2;
         const textY = pdfY + (area.height - fontSize) / 2;
@@ -162,7 +162,7 @@ export async function applyRedactions(
     }
 
     // Save the modified PDF
-    const pdfBytes = await pdfDoc.save();
+    const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
     // Convert Uint8Array to ArrayBuffer for Blob compatibility
     const outputBuffer = pdfBytes.buffer.slice(
       pdfBytes.byteOffset,
@@ -205,23 +205,23 @@ export function validateRedactionAreas(
 
   for (let i = 0; i < areas.length; i++) {
     const area = areas[i];
-    
+
     if (area.page < 1 || area.page > pageCount) {
       errors.push(`Area ${i + 1}: Invalid page number ${area.page}`);
     }
-    
+
     if (area.width <= 0) {
       errors.push(`Area ${i + 1}: Width must be positive`);
     }
-    
+
     if (area.height <= 0) {
       errors.push(`Area ${i + 1}: Height must be positive`);
     }
-    
+
     if (area.x < 0) {
       errors.push(`Area ${i + 1}: X coordinate cannot be negative`);
     }
-    
+
     if (area.y < 0) {
       errors.push(`Area ${i + 1}: Y coordinate cannot be negative`);
     }

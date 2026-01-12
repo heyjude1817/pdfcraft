@@ -47,12 +47,12 @@ export class TextColorProcessor extends BasePDFProcessor {
       this.updateProgress(10, 'Loading PDF...');
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load with pdf.js for rendering
       const pdfjsDoc = await pdfJs.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdfjsDoc.numPages;
 
-      const pagesToProcess = textOptions.pages === 'all' 
+      const pagesToProcess = textOptions.pages === 'all'
         ? Array.from({ length: totalPages }, (_, i) => i + 1)
         : (textOptions.pages as number[]);
 
@@ -79,11 +79,11 @@ export class TextColorProcessor extends BasePDFProcessor {
         const originalViewport = page.getViewport({ scale: 1 });
         const originalWidth = originalViewport.width;
         const originalHeight = originalViewport.height;
-        
+
         // Render at higher scale for better quality
         const renderScale = textOptions.scale || 3;
         const renderViewport = page.getViewport({ scale: renderScale });
-        
+
         const canvas = document.createElement('canvas');
         const width = renderViewport.width;
         const height = renderViewport.height;
@@ -104,15 +104,15 @@ export class TextColorProcessor extends BasePDFProcessor {
           const pixelR = data[j];
           const pixelG = data[j + 1];
           const pixelB = data[j + 2];
-          
+
           // Calculate brightness (simple average)
           const brightness = (pixelR + pixelG + pixelB) / 3;
-          
+
           // Check if pixel should be changed based on mode
-          const shouldChange = isDarkMode 
+          const shouldChange = isDarkMode
             ? brightness < threshold  // Dark mode: change dark pixels
             : brightness > threshold; // Light mode: change light pixels
-          
+
           if (shouldChange) {
             data[j] = r * 255;       // R
             data[j + 1] = g * 255;   // G
@@ -120,13 +120,13 @@ export class TextColorProcessor extends BasePDFProcessor {
             // Alpha stays unchanged
           }
         }
-        
+
         ctx.putImageData(imageData, 0, 0);
 
         // Convert canvas to PNG and embed in new PDF
         const pngImageBytes = await this.canvasToPngBytes(canvas);
         const image = await newPdf.embedPng(pngImageBytes);
-        
+
         // Add page with ORIGINAL dimensions
         const newPage = newPdf.addPage([originalWidth, originalHeight]);
         newPage.drawImage(image, {
@@ -138,7 +138,7 @@ export class TextColorProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

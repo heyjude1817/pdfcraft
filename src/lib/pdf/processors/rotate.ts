@@ -69,7 +69,7 @@ export class RotatePDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -81,7 +81,7 @@ export class RotatePDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -139,7 +139,7 @@ export class RotatePDFProcessor extends BasePDFProcessor {
 
         const pageNum = i + 1;
         const rotation = rotationsMap.get(pageNum) || 0;
-        
+
         this.updateProgress(
           30 + (i * progressPerPage),
           `Processing page ${pageNum}...`
@@ -183,8 +183,10 @@ export class RotatePDFProcessor extends BasePDFProcessor {
 
       this.updateProgress(90, 'Saving rotated PDF...');
 
-      // Save the rotated PDF
-      const pdfBytes = await newPdf.save();
+      // Save the rotated PDF with object streams enabled for better compression
+      const pdfBytes = await newPdf.save({
+        useObjectStreams: true,
+      });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

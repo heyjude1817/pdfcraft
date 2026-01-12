@@ -79,7 +79,7 @@ export class DividePagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -91,7 +91,7 @@ export class DividePagesPDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -155,19 +155,19 @@ export class DividePagesPDFProcessor extends BasePDFProcessor {
           for (let col = 0; col < grid.cols; col++) {
             // Copy the page
             const [copiedPage] = await newPdf.copyPages(sourcePdf, [i]);
-            
+
             // Calculate crop box coordinates
             // PDF coordinates start from bottom-left, so we need to flip the row order
             const x = col * sectionWidth;
             const y = height - ((row + 1) * sectionHeight); // Flip Y for PDF coordinates
-            
+
             // Set the crop box to show only this section
             copiedPage.setCropBox(x, y, sectionWidth, sectionHeight);
-            
+
             // Also set the media box to match the crop box size
             // This ensures the output page has the correct dimensions
             copiedPage.setMediaBox(x, y, sectionWidth, sectionHeight);
-            
+
             newPdf.addPage(copiedPage);
           }
         }
@@ -176,7 +176,7 @@ export class DividePagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving PDF...');
 
       // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

@@ -188,7 +188,7 @@ export class GridCombineProcessor extends BasePDFProcessor {
             for (const { doc, name } of sourceDocs) {
                 const pdfDoc = doc as ReturnType<typeof pdfLib.PDFDocument.load> extends Promise<infer T> ? T : never;
                 const pages = (pdfDoc as { getPages: () => unknown[] }).getPages();
-                
+
                 if (combineOptions.pageMode === 'all-pages') {
                     // Include all pages from each PDF
                     for (let i = 0; i < pages.length; i++) {
@@ -221,9 +221,35 @@ export class GridCombineProcessor extends BasePDFProcessor {
                 // 'leave-empty' - do nothing, keep original pages
             }
 
+            // Pre-embed all unique source pages at once to avoid duplicate font embedding
+            // This is crucial for CJK PDFs where fonts can be very large
+            this.updateProgress(45, 'Embedding pages...');
+
+            // Create a map of unique pages to embed (using page object as key)
+            const uniquePages: unknown[] = [];
+            const pageToIndex = new Map<unknown, number>();
+
+            for (const { page } of sourcePages) {
+                if (!pageToIndex.has(page)) {
+                    pageToIndex.set(page, uniquePages.length);
+                    uniquePages.push(page);
+                }
+            }
+
+            // Embed all unique pages at once
+            const embeddedPagesArray = await newPdf.embedPages(
+                uniquePages as Parameters<typeof newPdf.embedPages>[0]
+            );
+
+            // Create a lookup from original page to embedded page
+            const embeddedPageMap = new Map<unknown, typeof embeddedPagesArray[0]>();
+            for (let i = 0; i < uniquePages.length; i++) {
+                embeddedPageMap.set(uniquePages[i], embeddedPagesArray[i]);
+            }
+
             // Calculate how many output pages we need
             const totalOutputPages = Math.ceil(pagesToProcess.length / cellsPerPage);
-            const progressPerPage = 50 / totalOutputPages;
+            const progressPerPage = 40 / totalOutputPages;
 
             for (let outputPageNum = 0; outputPageNum < totalOutputPages; outputPageNum++) {
                 if (this.checkCancelled()) {
@@ -234,7 +260,7 @@ export class GridCombineProcessor extends BasePDFProcessor {
                 }
 
                 this.updateProgress(
-                    40 + outputPageNum * progressPerPage,
+                    50 + outputPageNum * progressPerPage,
                     `Creating page ${outputPageNum + 1} of ${totalOutputPages}...`
                 );
 
@@ -248,7 +274,8 @@ export class GridCombineProcessor extends BasePDFProcessor {
                 for (let cellIdx = 0; cellIdx < pageSubset.length; cellIdx++) {
                     const { page: sourcePage } = pageSubset[cellIdx];
 
-                    const embeddedPage = await newPdf.embedPage(sourcePage as Parameters<typeof newPdf.embedPage>[0]);
+                    // Use pre-embedded page from map
+                    const embeddedPage = embeddedPageMap.get(sourcePage)!;
 
                     // Calculate scale to fit in cell
                     const scale = Math.min(
@@ -293,8 +320,10 @@ export class GridCombineProcessor extends BasePDFProcessor {
 
             this.updateProgress(90, 'Saving PDF...');
 
-            // Save the new PDF
-            const pdfBytes = await newPdf.save();
+            // Save the new PDF with object streams enabled for better compression
+            const pdfBytes = await newPdf.save({
+                useObjectStreams: true,
+            });
             const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
             this.updateProgress(100, 'Complete!');

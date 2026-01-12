@@ -71,7 +71,7 @@ export async function rotateCustom(
             if (onProgress) onProgress(30 + Math.floor(((i + 1) / pageCount) * 60));
         }
 
-        const rotatedPdfBytes = await newPdfDoc.save();
+        const rotatedPdfBytes = await newPdfDoc.save({ useObjectStreams: true });
         const result = new Blob([rotatedPdfBytes as unknown as BlobPart], { type: 'application/pdf' });
 
         if (onProgress) onProgress(100);

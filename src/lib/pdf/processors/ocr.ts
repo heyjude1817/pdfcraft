@@ -119,7 +119,7 @@ export class OCRProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading libraries...');
 
       const pdfjs = await loadPdfjs();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -169,7 +169,7 @@ export class OCRProcessor extends BasePDFProcessor {
 
         const pageNum = pagesToOCR[i];
         const pageProgress = 25 + (i * progressPerPage);
-        
+
         this.updateProgress(
           pageProgress,
           `OCR processing page ${pageNum} of ${totalPages}...`
@@ -226,7 +226,7 @@ export class OCRProcessor extends BasePDFProcessor {
   private async initializeTesseract(languages: OCRLanguage[]): Promise<void> {
     // Dynamically import Tesseract.js
     const Tesseract = await import('tesseract.js');
-    
+
     const langString = languages.join('+');
     this.tesseractWorker = await Tesseract.createWorker(langString) as unknown as TesseractWorker;
   }
@@ -290,21 +290,21 @@ export class OCRProcessor extends BasePDFProcessor {
     options: OCROptions
   ): Promise<Blob> {
     const pdfLib = await loadPdfLib();
-    
+
     // Load original PDF
     const arrayBuffer = await originalFile.arrayBuffer();
     const pdfDoc = await pdfLib.PDFDocument.load(arrayBuffer);
-    
+
     // For now, we'll create a simple text file with the OCR results
     // A full searchable PDF implementation would require adding invisible text layers
     // which is complex and beyond the scope of this basic implementation
-    
+
     // Add metadata to indicate OCR was performed
     pdfDoc.setTitle(`${originalFile.name} (OCR)`);
     pdfDoc.setSubject('OCR processed document');
     pdfDoc.setKeywords(['OCR', 'searchable', ...options.languages]);
-    
-    const pdfBytes = await pdfDoc.save();
+
+    const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
     return new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   }
 }

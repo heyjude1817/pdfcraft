@@ -110,7 +110,7 @@ export class CropProcessor extends BasePDFProcessor {
       this.updateProgress(30 + (60 * (i + 1) / totalToProcess), `Cropping page ${pageNum}...`);
     }
 
-    return await pdf.save();
+    return await pdf.save({ useObjectStreams: true });
   }
 
   private async performDestructiveCrop(pdfLib: any, arrayBuffer: ArrayBuffer, cropData: Record<number, CropData>): Promise<Uint8Array> {

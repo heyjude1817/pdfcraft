@@ -41,21 +41,28 @@ export class BackgroundColorProcessor extends BasePDFProcessor {
       const sourcePdf = await pdfLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
 
       const totalPages = sourcePdf.getPageCount();
-      const pagesToProcess = bgOptions.pages === 'all' 
+      const pagesToProcess = bgOptions.pages === 'all'
         ? Array.from({ length: totalPages }, (_, i) => i)
         : (bgOptions.pages as number[]).map(p => p - 1);
 
       // Create new PDF with background
       const newPdf = await pdfLib.PDFDocument.create();
 
-      this.updateProgress(30, 'Adding background color...');
+      this.updateProgress(30, 'Embedding pages...');
+
+      // Pre-embed all pages at once to avoid duplicate font embedding
+      // This is crucial for CJK PDFs where fonts can be very large
+      const sourcePages = sourcePdf.getPages();
+      const embeddedPages = await newPdf.embedPages(sourcePages);
+
+      this.updateProgress(40, 'Adding background color...');
 
       for (let i = 0; i < totalPages; i++) {
         if (this.checkCancelled()) {
           return this.createErrorOutput(PDFErrorCode.PROCESSING_CANCELLED, 'Processing was cancelled.');
         }
 
-        const sourcePage = sourcePdf.getPage(i);
+        const sourcePage = sourcePages[i];
         const { width, height } = sourcePage.getSize();
 
         // Create new page with same dimensions
@@ -73,15 +80,17 @@ export class BackgroundColorProcessor extends BasePDFProcessor {
           });
         }
 
-        // Embed and draw the original page content on top
-        const embeddedPage = await newPdf.embedPage(sourcePage);
+        // Use pre-embedded page
+        const embeddedPage = embeddedPages[i];
         newPage.drawPage(embeddedPage, { x: 0, y: 0, width, height });
 
-        this.updateProgress(30 + (60 * (i + 1) / totalPages), `Processing page ${i + 1}...`);
+        this.updateProgress(40 + (50 * (i + 1) / totalPages), `Processing page ${i + 1}...`);
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({
+        useObjectStreams: true,
+      });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

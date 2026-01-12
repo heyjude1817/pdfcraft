@@ -73,7 +73,7 @@ export class OrganizePDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -85,7 +85,7 @@ export class OrganizePDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -141,7 +141,7 @@ export class OrganizePDFProcessor extends BasePDFProcessor {
 
         const pageNum = organizeOptions.pageOrder[i];
         const pageIndex = pageNum - 1; // Convert to 0-based index
-        
+
         this.updateProgress(
           30 + (i * progressPerPage),
           `Copying page ${pageNum}...`
@@ -154,7 +154,7 @@ export class OrganizePDFProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving reorganized PDF...');
 
       // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -194,20 +194,20 @@ function validatePageOrder(pageOrder: number[], totalPages: number): string | nu
 
   for (let i = 0; i < pageOrder.length; i++) {
     const pageNum = pageOrder[i];
-    
+
     if (!Number.isInteger(pageNum)) {
       return `Invalid page number at position ${i + 1}: ${pageNum}`;
     }
-    
+
     if (pageNum < 1) {
       return `Page number must be at least 1. Found ${pageNum} at position ${i + 1}.`;
     }
-    
+
     if (pageNum > totalPages) {
       return `Page ${pageNum} exceeds total pages (${totalPages}).`;
     }
   }
-  
+
   return null;
 }
 

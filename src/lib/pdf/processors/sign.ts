@@ -80,7 +80,7 @@ export class SignProcessor extends BasePDFProcessor {
           try {
             const imageData = sig.data.replace(/^data:image\/\w+;base64,/, '');
             const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-            
+
             let image;
             if (sig.data.includes('image/png')) {
               image = await pdf.embedPng(imageBytes);
@@ -106,12 +106,12 @@ export class SignProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
-      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_signed.pdf'), { 
-        signatureCount: signOptions.signatures.length 
+      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_signed.pdf'), {
+        signatureCount: signOptions.signatures.length
       });
 
     } catch (error) {

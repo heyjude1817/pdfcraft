@@ -84,7 +84,7 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -96,7 +96,7 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -135,7 +135,7 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
 
       // Calculate dimensions
       const { orientation, spacing, backgroundColor, addSeparator, separatorThickness, separatorColor } = combineOptions;
-      
+
       let maxWidth = 0;
       let maxHeight = 0;
       let totalWidth = 0;
@@ -183,8 +183,13 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
         });
       }
 
-      // Embed and draw each page
-      const progressPerPage = 70 / totalPages;
+      // Pre-embed all pages at once to avoid duplicate font embedding
+      // This is crucial for CJK PDFs where fonts can be very large
+      this.updateProgress(20, 'Embedding pages...');
+      const embeddedPages = await newPdf.embedPages(sourcePages);
+
+      // Draw each embedded page
+      const progressPerPage = 60 / totalPages;
       let currentX = 0;
       let currentY = finalHeight; // Start from top for vertical
 
@@ -197,15 +202,15 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
         }
 
         this.updateProgress(
-          20 + (i * progressPerPage),
+          25 + (i * progressPerPage),
           `Processing page ${i + 1} of ${totalPages}...`
         );
 
         const sourcePage = sourcePages[i];
         const { width, height } = sourcePage.getSize();
 
-        // Embed the page
-        const embeddedPage = await newPdf.embedPage(sourcePage);
+        // Use pre-embedded page
+        const embeddedPage = embeddedPages[i];
 
         if (orientation === 'horizontal') {
           // Center vertically
@@ -258,8 +263,10 @@ export class CombineSinglePagePDFProcessor extends BasePDFProcessor {
 
       this.updateProgress(90, 'Saving PDF...');
 
-      // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      // Save the new PDF with object streams enabled for better compression
+      const pdfBytes = await newPdf.save({
+        useObjectStreams: true,
+      });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

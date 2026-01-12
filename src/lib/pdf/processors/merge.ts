@@ -59,7 +59,7 @@ export class MergePDFProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -89,7 +89,7 @@ export class MergePDFProcessor extends BasePDFProcessor {
 
         const file = files[i];
         const fileProgress = 10 + (i * progressPerFile);
-        
+
         this.updateProgress(
           fileProgress,
           `Processing file ${i + 1} of ${files.length}: ${file.name}`
@@ -98,7 +98,7 @@ export class MergePDFProcessor extends BasePDFProcessor {
         try {
           // Read file as ArrayBuffer
           const arrayBuffer = await file.arrayBuffer();
-          
+
           // Load the source PDF
           const sourcePdf = await pdfLib.PDFDocument.load(arrayBuffer, {
             ignoreEncryption: false,
@@ -157,7 +157,7 @@ export class MergePDFProcessor extends BasePDFProcessor {
       this.updateProgress(95, 'Saving merged PDF...');
 
       // Save the merged PDF
-      const mergedPdfBytes = await mergedPdf.save();
+      const mergedPdfBytes = await mergedPdf.save({ useObjectStreams: true });
       // Create blob from the Uint8Array
       const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
 
@@ -209,20 +209,20 @@ async function addBookmarksToDocument(
   bookmarks: BookmarkEntry[]
 ): Promise<void> {
   const pdfLib = await loadPdfLib();
-  
+
   // Get the document's context and catalog
   const context = pdfDoc.context;
   const catalog = pdfDoc.catalog;
-  
+
   // Create outline entries array to track refs
   const outlineEntryRefs: ReturnType<typeof context.register>[] = [];
-  
+
   // Create each bookmark entry first
   for (let i = 0; i < bookmarks.length; i++) {
     const bookmark = bookmarks[i];
     const page = pdfDoc.getPage(bookmark.pageIndex);
     const pageRef = page.ref;
-    
+
     // Create destination array [page /XYZ left top zoom]
     const destArray = pdfLib.PDFArray.withContext(context);
     destArray.push(pageRef);
@@ -230,31 +230,31 @@ async function addBookmarksToDocument(
     destArray.push(pdfLib.PDFNull);
     destArray.push(pdfLib.PDFNull);
     destArray.push(pdfLib.PDFNull);
-    
+
     // Create bookmark dictionary
     const bookmarkDict = pdfLib.PDFDict.withContext(context);
     bookmarkDict.set(pdfLib.PDFName.of('Title'), pdfLib.PDFHexString.fromText(bookmark.title));
     bookmarkDict.set(pdfLib.PDFName.of('Dest'), destArray);
-    
+
     const bookmarkRef = context.register(bookmarkDict);
     outlineEntryRefs.push(bookmarkRef);
   }
-  
+
   // Create outline dictionary
   const outlineDict = pdfLib.PDFDict.withContext(context);
   outlineDict.set(pdfLib.PDFName.of('Type'), pdfLib.PDFName.of('Outlines'));
   outlineDict.set(pdfLib.PDFName.of('Count'), pdfLib.PDFNumber.of(bookmarks.length));
-  
+
   const outlineRef = context.register(outlineDict);
-  
+
   // Link bookmarks together and set parent
   for (let i = 0; i < outlineEntryRefs.length; i++) {
     const entryRef = outlineEntryRefs[i];
     const entryDict = context.lookup(entryRef) as ReturnType<typeof pdfLib.PDFDict.withContext>;
-    
+
     // Set parent
     entryDict.set(pdfLib.PDFName.of('Parent'), outlineRef);
-    
+
     // Set prev/next links
     if (i > 0) {
       entryDict.set(pdfLib.PDFName.of('Prev'), outlineEntryRefs[i - 1]);
@@ -263,13 +263,13 @@ async function addBookmarksToDocument(
       entryDict.set(pdfLib.PDFName.of('Next'), outlineEntryRefs[i + 1]);
     }
   }
-  
+
   // Set first and last in outline
   if (outlineEntryRefs.length > 0) {
     outlineDict.set(pdfLib.PDFName.of('First'), outlineEntryRefs[0]);
     outlineDict.set(pdfLib.PDFName.of('Last'), outlineEntryRefs[outlineEntryRefs.length - 1]);
   }
-  
+
   // Add outline to catalog
   catalog.set(pdfLib.PDFName.of('Outlines'), outlineRef);
 }
@@ -288,15 +288,15 @@ function getFileNameWithoutExtension(filename: string): string {
  */
 function generateMergedFilename(files: File[]): string {
   if (files.length === 0) return 'merged.pdf';
-  
+
   // Use first file's name as base
   const firstName = getFileNameWithoutExtension(files[0].name);
-  
+
   if (files.length === 2) {
     const secondName = getFileNameWithoutExtension(files[1].name);
     return `${firstName}_${secondName}_merged.pdf`;
   }
-  
+
   return `${firstName}_and_${files.length - 1}_more_merged.pdf`;
 }
 

@@ -39,12 +39,12 @@ export class InvertColorsProcessor extends BasePDFProcessor {
       this.updateProgress(10, 'Loading PDF...');
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load with pdf.js for rendering
       const pdfjsDoc = await pdfJs.getDocument({ data: arrayBuffer }).promise;
       const totalPages = pdfjsDoc.numPages;
 
-      const pagesToProcess = invertOptions.pages === 'all' 
+      const pagesToProcess = invertOptions.pages === 'all'
         ? Array.from({ length: totalPages }, (_, i) => i + 1)
         : (invertOptions.pages as number[]);
 
@@ -67,11 +67,11 @@ export class InvertColorsProcessor extends BasePDFProcessor {
         const originalViewport = page.getViewport({ scale: 1 });
         const originalWidth = originalViewport.width;  // Original PDF width in points
         const originalHeight = originalViewport.height; // Original PDF height in points
-        
+
         // Render at higher scale for better quality
         const renderScale = invertOptions.scale || 3;
         const renderViewport = page.getViewport({ scale: renderScale });
-        
+
         const canvas = document.createElement('canvas');
         canvas.width = renderViewport.width;
         canvas.height = renderViewport.height;
@@ -96,7 +96,7 @@ export class InvertColorsProcessor extends BasePDFProcessor {
         // Convert canvas to PNG and embed in new PDF
         const pngImageBytes = await this.canvasToPngBytes(canvas);
         const image = await newPdf.embedPng(pngImageBytes);
-        
+
         // Add page with ORIGINAL dimensions (not rendered pixel dimensions)
         // This preserves the original PDF page size
         const newPage = newPdf.addPage([originalWidth, originalHeight]);
@@ -109,7 +109,7 @@ export class InvertColorsProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

@@ -73,7 +73,7 @@ export class FlattenPDFProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -136,7 +136,7 @@ export class FlattenPDFProcessor extends BasePDFProcessor {
         try {
           const form = pdfDoc.getForm();
           const fields = form.getFields();
-          
+
           if (fields.length > 0) {
             hasFormFields = true;
             form.flatten();
@@ -160,7 +160,7 @@ export class FlattenPDFProcessor extends BasePDFProcessor {
       this.updateProgress(80, 'Saving flattened PDF...');
 
       // Save the flattened PDF
-      const flattenedPdfBytes = await pdfDoc.save();
+      const flattenedPdfBytes = await pdfDoc.save({ useObjectStreams: true });
 
       // Create blob from the Uint8Array
       const blob = new Blob([new Uint8Array(flattenedPdfBytes)], { type: 'application/pdf' });

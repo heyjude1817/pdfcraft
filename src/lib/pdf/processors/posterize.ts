@@ -139,7 +139,7 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -151,7 +151,7 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -182,7 +182,7 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
 
       // Parse page range
       const pageIndicesToProcess = parsePageRanges(posterizeOptions.pageRange, totalPages);
-      
+
       if (pageIndicesToProcess.length === 0) {
         return this.createErrorOutput(
           PDFErrorCode.INVALID_OPTIONS,
@@ -252,7 +252,7 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
 
             // Copy the page and set crop box
             const [copiedPage] = await newPdf.copyPages(sourcePdf, [pageIndex]);
-            
+
             // Set crop box to extract the tile
             copiedPage.setCropBox(
               Math.max(0, sx),
@@ -275,8 +275,8 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
             // Calculate scaling
             const scaleX = pageWidth / embeddedPage.width;
             const scaleY = pageHeight / embeddedPage.height;
-            const scale = scalingMode === 'fit' 
-              ? Math.min(scaleX, scaleY) 
+            const scale = scalingMode === 'fit'
+              ? Math.min(scaleX, scaleY)
               : Math.max(scaleX, scaleY);
 
             const scaledWidth = embeddedPage.width * scale;
@@ -298,8 +298,10 @@ export class PosterizePDFProcessor extends BasePDFProcessor {
 
       this.updateProgress(90, 'Saving PDF...');
 
-      // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      // Save the new PDF with object streams enabled for better compression
+      const pdfBytes = await newPdf.save({
+        useObjectStreams: true,
+      });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

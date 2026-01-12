@@ -73,7 +73,7 @@ export class WatermarkProcessor extends BasePDFProcessor {
           const text = wmOptions.text;
           const fontSize = wmOptions.fontSize || 48;
           const textWidth = font.widthOfTextAtSize(text, fontSize);
-          
+
           let x = 0, y = 0;
           const rotation = wmOptions.position === 'diagonal' ? -45 : (wmOptions.rotation || 0);
 
@@ -115,7 +115,7 @@ export class WatermarkProcessor extends BasePDFProcessor {
           const scale = 0.5;
           const imgWidth = image.width * scale;
           const imgHeight = image.height * scale;
-          
+
           const x = (width - imgWidth) / 2;
           const y = (height - imgHeight) / 2;
 
@@ -133,7 +133,7 @@ export class WatermarkProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

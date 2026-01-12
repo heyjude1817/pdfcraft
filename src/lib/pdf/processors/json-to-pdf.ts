@@ -104,7 +104,7 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -133,7 +133,7 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
 
         const file = files[i];
         const fileProgress = 10 + (i * progressPerFile);
-        
+
         this.updateProgress(
           fileProgress,
           `Processing file ${i + 1} of ${files.length}: ${file.name}`
@@ -159,7 +159,7 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
               parseError instanceof Error ? parseError.message : 'JSON parse error'
             );
           }
-          
+
           // Add JSON to PDF
           await this.addJSONToDocument(pdfDoc, jsonContent, file.name, font, pdfOptions, pdfLib);
         } catch (error) {
@@ -174,7 +174,7 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
       this.updateProgress(95, 'Saving PDF...');
 
       // Save the PDF
-      const pdfBytes = await pdfDoc.save();
+      const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -209,7 +209,7 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
   ): Promise<void> {
     const pageSize = JSON_PAGE_SIZES[options.pageSize];
     const { margin, fontSize, lineHeight, showLineNumbers } = options;
-    
+
     // Calculate available width and height
     const lineNumberWidth = showLineNumbers ? fontSize * 4 : 0;
     const availableWidth = pageSize.width - margin.left - margin.right - lineNumberWidth;
@@ -305,14 +305,14 @@ export class JSONToPDFProcessor extends BasePDFProcessor {
       // Need to wrap - preserve indentation
       const indent = line.match(/^(\s*)/)?.[1] || '';
       const content = line.slice(indent.length);
-      
+
       let currentLine = indent;
       let i = 0;
 
       while (i < content.length) {
         const char = content[i];
         const testLine = currentLine + char;
-        
+
         if (font.widthOfTextAtSize(testLine, fontSize) <= maxWidth) {
           currentLine = testLine;
           i++;

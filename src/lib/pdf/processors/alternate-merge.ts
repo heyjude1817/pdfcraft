@@ -69,7 +69,7 @@ export class AlternateMergePDFProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -98,7 +98,7 @@ export class AlternateMergePDFProcessor extends BasePDFProcessor {
 
         const file = files[i];
         const fileProgress = 10 + (i * progressPerFile);
-        
+
         this.updateProgress(
           fileProgress,
           `Loading file ${i + 1} of ${files.length}: ${file.name}`
@@ -194,7 +194,7 @@ export class AlternateMergePDFProcessor extends BasePDFProcessor {
       this.updateProgress(95, 'Saving merged PDF...');
 
       // Save the merged PDF
-      const mergedPdfBytes = await mergedPdf.save();
+      const mergedPdfBytes = await mergedPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -246,14 +246,14 @@ function getFileNameWithoutExtension(filename: string): string {
  */
 function generateAlternateMergedFilename(files: File[]): string {
   if (files.length === 0) return 'alternate-merged.pdf';
-  
+
   const firstName = getFileNameWithoutExtension(files[0].name);
-  
+
   if (files.length === 2) {
     const secondName = getFileNameWithoutExtension(files[1].name);
     return `${firstName}_${secondName}_interleaved.pdf`;
   }
-  
+
   return `${firstName}_and_${files.length - 1}_more_interleaved.pdf`;
 }
 

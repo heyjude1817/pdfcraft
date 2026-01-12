@@ -165,7 +165,7 @@ export class HeaderFooterProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

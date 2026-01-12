@@ -74,7 +74,7 @@ export class ExtractPagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -86,7 +86,7 @@ export class ExtractPagesPDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -145,7 +145,7 @@ export class ExtractPagesPDFProcessor extends BasePDFProcessor {
 
         const pageNum = uniquePages[i];
         const pageIndex = pageNum - 1; // Convert to 0-based index
-        
+
         this.updateProgress(
           30 + (i * progressPerPage),
           `Extracting page ${pageNum}...`
@@ -158,7 +158,7 @@ export class ExtractPagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving extracted pages...');
 
       // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -199,20 +199,20 @@ function validatePages(pages: number[], totalPages: number): string | null {
 
   for (let i = 0; i < pages.length; i++) {
     const pageNum = pages[i];
-    
+
     if (!Number.isInteger(pageNum)) {
       return `Invalid page number: ${pageNum}`;
     }
-    
+
     if (pageNum < 1) {
       return `Page number must be at least 1. Found ${pageNum}.`;
     }
-    
+
     if (pageNum > totalPages) {
       return `Page ${pageNum} exceeds total pages (${totalPages}).`;
     }
   }
-  
+
   return null;
 }
 
@@ -230,15 +230,15 @@ function getFileNameWithoutExtension(filename: string): string {
  */
 function generateExtractedFilename(originalName: string, pages: number[]): string {
   const baseName = getFileNameWithoutExtension(originalName);
-  
+
   if (pages.length === 1) {
     return `${baseName}_page_${pages[0]}.pdf`;
   }
-  
+
   if (pages.length <= 3) {
     return `${baseName}_pages_${pages.join('-')}.pdf`;
   }
-  
+
   return `${baseName}_${pages.length}_pages_extracted.pdf`;
 }
 
@@ -249,13 +249,13 @@ function generateExtractedFilename(originalName: string, pages: number[]): strin
 export function parsePageSelection(selectionString: string, totalPages: number): number[] {
   const pages: number[] = [];
   const parts = selectionString.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  
+
   for (const part of parts) {
     if (part.includes('-')) {
       const [startStr, endStr] = part.split('-').map(s => s.trim());
       const start = parseInt(startStr, 10);
       const end = parseInt(endStr, 10);
-      
+
       if (!isNaN(start) && !isNaN(end) && start <= end) {
         for (let i = start; i <= Math.min(end, totalPages); i++) {
           if (i >= 1) pages.push(i);
@@ -268,7 +268,7 @@ export function parsePageSelection(selectionString: string, totalPages: number):
       }
     }
   }
-  
+
   // Remove duplicates and sort
   return [...new Set(pages)].sort((a, b) => a - b);
 }

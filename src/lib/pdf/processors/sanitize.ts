@@ -89,7 +89,7 @@ export class SanitizePDFProcessor extends BasePDFProcessor {
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
       const { PDFName } = pdfLib;
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -355,7 +355,7 @@ export class SanitizePDFProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving sanitized PDF...');
 
       // Save the sanitized PDF
-      const sanitizedPdfBytes = await pdfDoc.save();
+      const sanitizedPdfBytes = await pdfDoc.save({ useObjectStreams: true });
 
       // Create blob from the Uint8Array
       const blob = new Blob([new Uint8Array(sanitizedPdfBytes)], { type: 'application/pdf' });

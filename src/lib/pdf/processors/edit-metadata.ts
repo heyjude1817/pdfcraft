@@ -59,7 +59,7 @@ export class EditMetadataPDFProcessor extends BasePDFProcessor {
 
     const { files, options } = input;
     const inputOptions = options as Partial<EditMetadataOptions>;
-    
+
     // Ensure metadata is provided
     if (!inputOptions.metadata) {
       return this.createErrorOutput(
@@ -68,7 +68,7 @@ export class EditMetadataPDFProcessor extends BasePDFProcessor {
         'Please provide metadata fields to update.'
       );
     }
-    
+
     const editOptions: EditMetadataOptions = {
       metadata: inputOptions.metadata,
       updateModificationDate: inputOptions.updateModificationDate ?? DEFAULT_OPTIONS.updateModificationDate ?? true,
@@ -90,7 +90,7 @@ export class EditMetadataPDFProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -169,7 +169,7 @@ export class EditMetadataPDFProcessor extends BasePDFProcessor {
       this.updateProgress(80, 'Saving PDF...');
 
       // Save the modified PDF
-      const modifiedPdfBytes = await pdfDoc.save();
+      const modifiedPdfBytes = await pdfDoc.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(modifiedPdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

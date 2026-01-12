@@ -43,7 +43,7 @@ export class ReversePagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -55,7 +55,7 @@ export class ReversePagesPDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -95,7 +95,7 @@ export class ReversePagesPDFProcessor extends BasePDFProcessor {
 
       // Create new PDF with reversed page order
       const newPdf = await pdfLib.PDFDocument.create();
-      
+
       // Create reversed indices array
       const reversedIndices = Array.from(
         { length: totalPages },
@@ -111,7 +111,7 @@ export class ReversePagesPDFProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving PDF...');
 
       // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

@@ -19,12 +19,18 @@ import { loadPdfLib } from '../loader';
  * N-Up options
  */
 export interface NUpOptions {
-  /** Number of pages per sheet (2, 4, 9, 16) */
-  pagesPerSheet: 2 | 4 | 9 | 16;
+  /** Number of pages per sheet (2, 4, 9, 16, or 'custom') */
+  pagesPerSheet: 2 | 4 | 9 | 16 | 'custom';
+  /** Custom columns (only used when pagesPerSheet is 'custom') */
+  customCols: number;
+  /** Custom rows (only used when pagesPerSheet is 'custom') */
+  customRows: number;
   /** Output page size */
   pageSize: 'A4' | 'Letter' | 'Legal' | 'A3';
   /** Page orientation */
   orientation: 'portrait' | 'landscape' | 'auto';
+  /** Layout direction - how pages are arranged */
+  layoutDirection: 'horizontal' | 'vertical';
   /** Add margins */
   useMargins: boolean;
   /** Add border around each page */
@@ -38,8 +44,11 @@ export interface NUpOptions {
  */
 const DEFAULT_OPTIONS: NUpOptions = {
   pagesPerSheet: 4,
+  customCols: 2,
+  customRows: 2,
   pageSize: 'A4',
   orientation: 'auto',
+  layoutDirection: 'horizontal',
   useMargins: true,
   addBorder: false,
   borderColor: '#000000',
@@ -56,14 +65,40 @@ const PAGE_SIZES: Record<string, [number, number]> = {
 };
 
 /**
- * Grid dimensions for each N value
+ * Get grid dimensions based on options
+ * Returns [columns, rows]
  */
-const GRID_DIMS: Record<number, [number, number]> = {
-  2: [2, 1],
-  4: [2, 2],
-  9: [3, 3],
-  16: [4, 4],
-};
+function getGridDims(options: NUpOptions): [number, number] {
+  // Custom layout
+  if (options.pagesPerSheet === 'custom') {
+    return [
+      Math.max(1, Math.min(10, options.customCols)),
+      Math.max(1, Math.min(10, options.customRows))
+    ];
+  }
+
+  const n = options.pagesPerSheet;
+
+  if (options.layoutDirection === 'vertical') {
+    // Vertical layout: stack pages top to bottom first
+    switch (n) {
+      case 2: return [1, 2];  // 1 column, 2 rows (top-bottom)
+      case 4: return [2, 2];
+      case 9: return [3, 3];
+      case 16: return [4, 4];
+      default: return [2, 2];
+    }
+  } else {
+    // Horizontal layout: arrange pages left to right first (default)
+    switch (n) {
+      case 2: return [2, 1];  // 2 columns, 1 row (left-right)
+      case 4: return [2, 2];
+      case 9: return [3, 3];
+      case 16: return [4, 4];
+      default: return [2, 2];
+    }
+  }
+}
 
 /**
  * N-Up PDF Processor
@@ -98,7 +133,7 @@ export class NUpPDFProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF library...');
 
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -110,7 +145,7 @@ export class NUpPDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -139,9 +174,9 @@ export class NUpPDFProcessor extends BasePDFProcessor {
         );
       }
 
-      // Get grid dimensions
-      const n = nupOptions.pagesPerSheet;
-      const dims = GRID_DIMS[n];
+      // Get grid dimensions based on options
+      const dims = getGridDims(nupOptions);
+      const pagesPerSheetNum = dims[0] * dims[1];
 
       // Get page size
       let [pageWidth, pageHeight] = PAGE_SIZES[nupOptions.pageSize];
@@ -172,13 +207,25 @@ export class NUpPDFProcessor extends BasePDFProcessor {
 
       // Create new PDF
       const newPdf = await pdfLib.PDFDocument.create();
-      const totalSheets = Math.ceil(totalPages / n);
-      const progressPerSheet = 60 / totalSheets;
+      const totalSheets = Math.ceil(totalPages / pagesPerSheetNum);
+      const progressPerSheet = 50 / totalSheets;
 
       // Parse border color
       const borderRgb = hexToRgb(nupOptions.borderColor);
 
-      for (let i = 0; i < totalPages; i += n) {
+      // Pre-embed all pages at once to avoid duplicate font embedding
+      // This is crucial for CJK PDFs where fonts can be very large
+      this.updateProgress(35, 'Embedding pages...');
+      const embeddedPages = await newPdf.embedPages(sourcePages);
+
+      if (this.checkCancelled()) {
+        return this.createErrorOutput(
+          PDFErrorCode.PROCESSING_CANCELLED,
+          'Processing was cancelled.'
+        );
+      }
+
+      for (let i = 0; i < totalPages; i += pagesPerSheetNum) {
         if (this.checkCancelled()) {
           return this.createErrorOutput(
             PDFErrorCode.PROCESSING_CANCELLED,
@@ -186,18 +233,18 @@ export class NUpPDFProcessor extends BasePDFProcessor {
           );
         }
 
-        const sheetNum = Math.floor(i / n) + 1;
+        const sheetNum = Math.floor(i / pagesPerSheetNum) + 1;
         this.updateProgress(
-          30 + (sheetNum - 1) * progressPerSheet,
+          40 + (sheetNum - 1) * progressPerSheet,
           `Processing sheet ${sheetNum} of ${totalSheets}...`
         );
 
-        const chunk = sourcePages.slice(i, i + n);
         const outputPage = newPdf.addPage([pageWidth, pageHeight]);
 
-        for (let j = 0; j < chunk.length; j++) {
-          const sourcePage = chunk[j];
-          const embeddedPage = await newPdf.embedPage(sourcePage);
+        // Get the embedded pages for this sheet
+        for (let j = 0; j < pagesPerSheetNum && (i + j) < totalPages; j++) {
+          const pageIndex = i + j;
+          const embeddedPage = embeddedPages[pageIndex];
 
           const scale = Math.min(
             cellWidth / embeddedPage.width,
@@ -236,19 +283,25 @@ export class NUpPDFProcessor extends BasePDFProcessor {
 
       this.updateProgress(90, 'Saving PDF...');
 
-      // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      // Save the new PDF with object streams enabled for better compression
+      const pdfBytes = await newPdf.save({
+        useObjectStreams: true,
+      });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
 
       // Generate output filename
-      const outputFilename = generateFilename(file.name, n);
+      const layoutStr = nupOptions.pagesPerSheet === 'custom'
+        ? `${dims[0]}x${dims[1]}`
+        : `${pagesPerSheetNum}-up`;
+      const outputFilename = generateFilename(file.name, layoutStr);
 
       return this.createSuccessOutput(blob, outputFilename, {
         originalPageCount: totalPages,
         outputSheetCount: totalSheets,
-        pagesPerSheet: n,
+        pagesPerSheet: pagesPerSheetNum,
+        gridLayout: `${dims[0]}×${dims[1]}`,
       });
 
     } catch (error) {
@@ -295,9 +348,9 @@ function getFileNameWithoutExtension(filename: string): string {
 /**
  * Generate output filename
  */
-function generateFilename(originalName: string, n: number): string {
+function generateFilename(originalName: string, layoutStr: string): string {
   const baseName = getFileNameWithoutExtension(originalName);
-  return `${baseName}_${n}-up.pdf`;
+  return `${baseName}_${layoutStr}.pdf`;
 }
 
 /**

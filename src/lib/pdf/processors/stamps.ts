@@ -82,7 +82,7 @@ export class StampsProcessor extends BasePDFProcessor {
             // Draw stamp border
             const width = stamp.width || 150;
             const height = stamp.height || 40;
-            
+
             page.drawRectangle({
               x: stamp.x,
               y: stamp.y,
@@ -111,7 +111,7 @@ export class StampsProcessor extends BasePDFProcessor {
           try {
             const imageData = stamp.imageData.replace(/^data:image\/\w+;base64,/, '');
             const imageBytes = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
-            
+
             let image;
             if (stamp.imageData.includes('image/png')) {
               image = await pdf.embedPng(imageBytes);
@@ -136,12 +136,12 @@ export class StampsProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
-      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_stamped.pdf'), { 
-        stampCount: stampsOptions.stamps.length 
+      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_stamped.pdf'), {
+        stampCount: stampsOptions.stamps.length
       });
 
     } catch (error) {

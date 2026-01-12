@@ -20,6 +20,10 @@ export interface PageNumberOptions {
   prefix?: string;
   suffix?: string;
   customFormat?: string;
+  // Odd/Even page settings
+  pageMode?: 'all' | 'odd-only' | 'even-only' | 'odd-even-different';
+  oddPosition?: 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-center' | 'top-left' | 'top-right';
+  evenPosition?: 'bottom-center' | 'bottom-left' | 'bottom-right' | 'top-center' | 'top-left' | 'top-right';
 }
 
 export class PageNumbersProcessor extends BasePDFProcessor {
@@ -74,20 +78,26 @@ export class PageNumbersProcessor extends BasePDFProcessor {
         }
 
         const pageNum = i + 1;
-        
+        const isOddPage = pageNum % 2 === 1;
+        const pageMode = pageNumOptions.pageMode || 'all';
+
         // Skip first page if option is set
         if (pageNumOptions.skipFirstPage && pageNum === 1) continue;
-        
+
         // Skip pages in skipPages array
         if (skipSet.has(pageNum)) continue;
 
+        // Handle page mode filtering
+        if (pageMode === 'odd-only' && !isOddPage) continue;
+        if (pageMode === 'even-only' && isOddPage) continue;
+
         const page = pdf.getPage(i);
         const { width, height } = page.getSize();
-        
+
         const displayNum = (pageNumOptions.startNumber || 1) + i - (pageNumOptions.skipFirstPage ? 1 : 0);
         const adjustedTotal = totalPages - (pageNumOptions.skipFirstPage ? 1 : 0);
         let text = '';
-        
+
         switch (pageNumOptions.format) {
           case 'roman':
             text = toRoman(displayNum);
@@ -112,7 +122,17 @@ export class PageNumbersProcessor extends BasePDFProcessor {
         const textWidth = font.widthOfTextAtSize(text, fontSize);
         let x = 0, y = 0;
 
-        switch (pageNumOptions.position) {
+        // Determine position based on page mode and odd/even
+        let effectivePosition = pageNumOptions.position || 'bottom-center';
+        if (pageMode === 'odd-even-different') {
+          if (isOddPage && pageNumOptions.oddPosition) {
+            effectivePosition = pageNumOptions.oddPosition;
+          } else if (!isOddPage && pageNumOptions.evenPosition) {
+            effectivePosition = pageNumOptions.evenPosition;
+          }
+        }
+
+        switch (effectivePosition) {
           case 'bottom-left':
             x = margin;
             y = margin;
@@ -143,7 +163,7 @@ export class PageNumbersProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');

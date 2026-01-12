@@ -57,10 +57,10 @@ export class FormFillerProcessor extends BasePDFProcessor {
       for (const fieldValue of formOptions.fields) {
         try {
           const field = form.getField(fieldValue.fieldName);
-          
+
           if (field) {
             const fieldType = field.constructor.name;
-            
+
             if (fieldType === 'PDFTextField') {
               const textField = form.getTextField(fieldValue.fieldName);
               textField.setText(String(fieldValue.value));
@@ -95,11 +95,11 @@ export class FormFillerProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
-      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_filled.pdf'), { 
+      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_filled.pdf'), {
         totalFields: fields.length,
         filledFields: filledCount,
         flattened: formOptions.flatten,

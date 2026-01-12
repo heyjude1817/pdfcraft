@@ -40,7 +40,7 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
       this.updateProgress(15, 'Loading PDF...');
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load with pdfjs for rendering
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
       const totalPages = pdfDoc.numPages;
@@ -57,14 +57,14 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
 
         const page = await pdfDoc.getPage(i);
         const viewport = page.getViewport({ scale: 0.5 });
-        
+
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
-        
+
         if (context) {
           canvas.width = viewport.width;
           canvas.height = viewport.height;
-          
+
           await page.render({
             canvasContext: context,
             viewport: viewport,
@@ -72,7 +72,7 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
 
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
           const isBlank = this.isPageBlank(imageData, threshold);
-          
+
           if (isBlank) {
             blankPages.push(i);
           }
@@ -84,7 +84,7 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
       if (blankPages.length === 0) {
         this.updateProgress(100, 'Complete!');
         const blob = new Blob([new Uint8Array(arrayBuffer)], { type: 'application/pdf' });
-        return this.createSuccessOutput(blob, file.name, { 
+        return this.createSuccessOutput(blob, file.name, {
           pageCount: totalPages,
           blankPagesRemoved: 0,
           message: 'No blank pages found.',
@@ -108,11 +108,11 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
       copiedPages.forEach(page => newPdf.addPage(page));
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
-      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_no_blanks.pdf'), { 
+      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_no_blanks.pdf'), {
         originalPageCount: totalPages,
         blankPagesRemoved: blankPages.length,
         newPageCount: pagesToKeep.length,
@@ -133,7 +133,7 @@ export class RemoveBlankPagesProcessor extends BasePDFProcessor {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      
+
       // Check if pixel is close to white (allowing some tolerance)
       if (r > 250 && g > 250 && b > 250) {
         whitePixels++;

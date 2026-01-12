@@ -42,7 +42,7 @@ export class RemoveAnnotationsProcessor extends BasePDFProcessor {
       const pdf = await pdfLib.PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
 
       const totalPages = pdf.getPageCount();
-      const pagesToProcess = removeOptions.pages === 'all' 
+      const pagesToProcess = removeOptions.pages === 'all'
         ? Array.from({ length: totalPages }, (_, i) => i)
         : (removeOptions.pages as number[]).map(p => p - 1);
 
@@ -57,10 +57,10 @@ export class RemoveAnnotationsProcessor extends BasePDFProcessor {
 
         const pageIndex = pagesToProcess[i];
         const page = pdf.getPage(pageIndex);
-        
+
         // Get the page's annotation references
         const annots = page.node.get(pdfLib.PDFName.of('Annots'));
-        
+
         if (annots) {
           if (removeOptions.removeAll) {
             // Remove all annotations
@@ -78,11 +78,11 @@ export class RemoveAnnotationsProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(95, 'Saving PDF...');
-      const pdfBytes = await pdf.save();
+      const pdfBytes = await pdf.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
-      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_no_annotations.pdf'), { 
+      return this.createSuccessOutput(blob, file.name.replace('.pdf', '_no_annotations.pdf'), {
         pageCount: totalPages,
         pagesProcessed: pagesToProcess.length,
       });

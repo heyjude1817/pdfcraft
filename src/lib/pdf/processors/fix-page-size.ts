@@ -102,7 +102,7 @@ export class FixPageSizeProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -167,7 +167,7 @@ export class FixPageSizeProcessor extends BasePDFProcessor {
           // Match source orientation
           const sourceIsLandscape = sourceWidth > sourceHeight;
           const targetIsLandscape = finalWidth > finalHeight;
-          
+
           if (sourceIsLandscape !== targetIsLandscape) {
             [finalWidth, finalHeight] = [finalHeight, finalWidth];
           }
@@ -206,7 +206,7 @@ export class FixPageSizeProcessor extends BasePDFProcessor {
       this.updateProgress(90, 'Saving PDF...');
 
       // Save the new PDF
-      const pdfBytes = await newPdf.save();
+      const pdfBytes = await newPdf.save({ useObjectStreams: true });
 
       // Create blob from the Uint8Array
       const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });

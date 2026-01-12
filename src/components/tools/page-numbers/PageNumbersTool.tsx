@@ -46,6 +46,10 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
   const [skipFirstPage, setSkipFirstPage] = useState(false);
   const [prefix, setPrefix] = useState('');
   const [suffix, setSuffix] = useState('');
+  // Odd/Even page settings
+  const [pageMode, setPageMode] = useState<'all' | 'odd-only' | 'even-only' | 'odd-even-different'>('all');
+  const [oddPosition, setOddPosition] = useState<Position>('bottom-right');
+  const [evenPosition, setEvenPosition] = useState<Position>('bottom-left');
 
   // Preview state
   const [totalPages, setTotalPages] = useState(0);
@@ -54,6 +58,7 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const cancelledRef = useRef(false);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
 
   // Load PDF preview
   const loadPdfPreview = useCallback(async (pdfFile: File) => {
@@ -71,6 +76,16 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
   const renderPagePreview = async (pdf: pdfjsLib.PDFDocumentProxy, pageNum: number) => {
     if (!previewCanvasRef.current) return;
 
+    // Cancel any ongoing render task
+    if (renderTaskRef.current) {
+      try {
+        renderTaskRef.current.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+      renderTaskRef.current = null;
+    }
+
     try {
       const page = await pdf.getPage(pageNum);
       // Use scale 1.5 for good quality preview
@@ -84,14 +99,29 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const renderTask = page.render({ canvasContext: ctx, viewport });
+      renderTaskRef.current = renderTask;
 
-      // Draw page number overlay (unless skipping first page)
-      if (!(skipFirstPage && pageNum === 1)) {
-        drawPageNumberOverlay(ctx, viewport.width, viewport.height, pageNum, pdf.numPages, renderScale);
+      await renderTask.promise;
+      renderTaskRef.current = null;
+
+      // Check if page number should be drawn based on pageMode
+      const isOddPage = pageNum % 2 === 1;
+      let shouldDraw = true;
+
+      if (skipFirstPage && pageNum === 1) shouldDraw = false;
+      else if (pageMode === 'odd-only' && !isOddPage) shouldDraw = false;
+      else if (pageMode === 'even-only' && isOddPage) shouldDraw = false;
+
+      if (shouldDraw) {
+        drawPageNumberOverlay(ctx, viewport.width, viewport.height, pageNum, pdf.numPages, renderScale, isOddPage);
       }
 
     } catch (err) {
+      // Ignore cancelled render errors
+      if (err instanceof Error && err.message.includes('cancelled')) {
+        return;
+      }
       console.error('Failed to render page:', err);
     }
   };
@@ -146,7 +176,8 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
     height: number,
     page: number,
     total: number,
-    renderScale: number = 1
+    renderScale: number = 1,
+    isOddPage: boolean = true
   ) => {
     const text = formatPageNumber(page, total);
     // Scale font size and margin according to render scale
@@ -156,11 +187,17 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
     ctx.font = `${scaledFontSize}px Arial`;
     ctx.fillStyle = fontColor;
 
+    // Determine effective position based on page mode
+    let effectivePosition: Position = position;
+    if (pageMode === 'odd-even-different') {
+      effectivePosition = isOddPage ? oddPosition : evenPosition;
+    }
+
     // Calculate position
     let x = 0;
     let y = 0;
 
-    switch (position) {
+    switch (effectivePosition) {
       case 'bottom-center':
         ctx.textAlign = 'center';
         x = width / 2;
@@ -219,7 +256,7 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
       };
       loadAndRender();
     }
-  }, [file, position, format, customFormat, startNumber, fontSize, fontColor, margin, skipFirstPage, prefix, suffix, currentPreviewPage, totalPages]);
+  }, [file, position, format, customFormat, startNumber, fontSize, fontColor, margin, skipFirstPage, prefix, suffix, currentPreviewPage, totalPages, pageMode, oddPosition, evenPosition]);
 
   const handleFilesSelected = useCallback((files: File[]) => {
     if (files.length > 0) {
@@ -260,6 +297,9 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
         prefix,
         suffix,
         customFormat: format === 'custom' ? customFormat : undefined,
+        pageMode,
+        oddPosition,
+        evenPosition,
       };
 
       const output: ProcessOutput = await addPageNumbers(file, options, (prog, message) => {
@@ -280,7 +320,7 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       setStatus('error');
     }
-  }, [file, position, format, customFormat, startNumber, fontSize, fontColor, margin, skipFirstPage, prefix, suffix]);
+  }, [file, position, format, customFormat, startNumber, fontSize, fontColor, margin, skipFirstPage, prefix, suffix, pageMode, oddPosition, evenPosition]);
 
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -323,18 +363,19 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
       )}
 
       {file && (
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-2 gap-4">
           {/* Options Panel */}
-          <div className="space-y-6 lg:max-h-[850px] lg:overflow-y-auto lg:pr-2">
-            <Card variant="outlined">
+          <div className="space-y-3 lg:max-h-[850px] lg:overflow-y-auto lg:pr-2">
+            {/* File Info */}
+            <Card variant="outlined" className="p-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <svg className="w-10 h-10 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                <div className="flex items-center gap-2">
+                  <svg className="w-8 h-8 text-red-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
                   </svg>
-                  <div>
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-[hsl(var(--color-muted-foreground))]">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{file.name}</p>
+                    <p className="text-xs text-[hsl(var(--color-muted-foreground))]">
                       {formatSize(file.size)} • {totalPages} pages
                     </p>
                   </div>
@@ -345,21 +386,20 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
               </div>
             </Card>
 
-            <Card variant="outlined" size="lg">
-              <h3 className="text-lg font-medium mb-4">
+            {/* Main Options Card */}
+            <Card variant="outlined" className="p-4">
+              {/* Position Section */}
+              <h4 className="text-sm font-semibold mb-2 text-gray-700">
                 {tTools('pageNumbers.positionTitle')}
-              </h3>
-
-              {/* Visual Position Selector */}
-              <div className="grid grid-cols-3 gap-2 mb-6">
+              </h4>
+              <div className="grid grid-cols-3 gap-1.5 mb-4">
                 {positionOptions.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setPosition(opt.value as Position)}
                     disabled={isProcessing}
                     className={`
-                      p-3 rounded-[var(--radius-md)] border-2 transition-all
-                      flex flex-col items-center gap-1 text-sm
+                      p-2 rounded-md border transition-all text-center
                       ${position === opt.value
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-gray-200 hover:border-gray-300'
@@ -367,151 +407,213 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
                   >
-                    <span className="text-lg">{opt.icon}</span>
-                    <span className="text-xs">{opt.label}</span>
+                    <span className="text-base">{opt.icon}</span>
+                    <span className="block text-xs">{opt.label}</span>
                   </button>
                 ))}
               </div>
 
-              <h3 className="text-lg font-medium mb-4">
+              {/* Format Section */}
+              <h4 className="text-sm font-semibold mb-2 text-gray-700">
                 {tTools('pageNumbers.formatTitle')}
-              </h3>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.style')}</label>
-                    <select
-                      value={format}
-                      onChange={(e) => setFormat(e.target.value as Format)}
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    >
-                      <option value="number">1, 2, 3...</option>
-                      <option value="roman">I, II, III...</option>
-                      <option value="page-of-total">Page 1 of N</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.startNumber')}</label>
-                    <input
-                      type="number"
-                      value={startNumber}
-                      onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
-                      min={1}
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                </div>
-
-                {format === 'custom' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.customFormat')}</label>
-                    <input
-                      type="text"
-                      value={customFormat}
-                      onChange={(e) => setCustomFormat(e.target.value)}
-                      placeholder="Page {page} of {total}"
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {tTools('pageNumbers.customFormatHint')}
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.prefix')}</label>
-                    <input
-                      type="text"
-                      value={prefix}
-                      onChange={(e) => setPrefix(e.target.value)}
-                      placeholder="e.g., Page "
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.suffix')}</label>
-                    <input
-                      type="text"
-                      value={suffix}
-                      onChange={(e) => setSuffix(e.target.value)}
-                      placeholder="e.g.,  -"
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <h3 className="text-lg font-medium mb-4 mt-6">
-                {tTools('pageNumbers.styleTitle')}
-              </h3>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.fontSize')}</label>
-                    <input
-                      type="number"
-                      value={fontSize}
-                      onChange={(e) => setFontSize(parseInt(e.target.value) || 12)}
-                      min={6}
-                      max={72}
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.margin')}</label>
-                    <input
-                      type="number"
-                      value={margin}
-                      onChange={(e) => setMargin(parseInt(e.target.value) || 30)}
-                      min={10}
-                      max={100}
-                      className="w-full px-3 py-2 border rounded-[var(--radius-md)]"
-                      disabled={isProcessing}
-                    />
-                  </div>
+              </h4>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.style')}</label>
+                  <select
+                    value={format}
+                    onChange={(e) => setFormat(e.target.value as Format)}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  >
+                    <option value="number">1, 2, 3...</option>
+                    <option value="roman">I, II, III...</option>
+                    <option value="page-of-total">Page 1 of N</option>
+                    <option value="custom">Custom</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.color')}</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={fontColor}
-                      onChange={(e) => setFontColor(e.target.value)}
-                      className="w-10 h-10 p-1 cursor-pointer rounded border border-gray-300"
-                      disabled={isProcessing}
-                    />
-                    <input
-                      type="text"
-                      value={fontColor}
-                      onChange={(e) => setFontColor(e.target.value)}
-                      className="flex-1 px-3 py-2 border rounded-[var(--radius-md)] text-sm"
-                      disabled={isProcessing}
-                    />
-                  </div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.startNumber')}</label>
+                  <input
+                    type="number"
+                    value={startNumber}
+                    onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
+                    min={1}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 mt-4">
+              {format === 'custom' && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.customFormat')}</label>
+                  <input
+                    type="text"
+                    value={customFormat}
+                    onChange={(e) => setCustomFormat(e.target.value)}
+                    placeholder="Page {page} of {total}"
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{tTools('pageNumbers.customFormatHint')}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.prefix')}</label>
+                  <input
+                    type="text"
+                    value={prefix}
+                    onChange={(e) => setPrefix(e.target.value)}
+                    placeholder="e.g., Page "
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.suffix')}</label>
+                  <input
+                    type="text"
+                    value={suffix}
+                    onChange={(e) => setSuffix(e.target.value)}
+                    placeholder="e.g., -"
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+
+              {/* Style Section */}
+              <h4 className="text-sm font-semibold mb-2 text-gray-700 pt-2 border-t">
+                {tTools('pageNumbers.styleTitle')}
+              </h4>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.fontSize')}</label>
+                  <input
+                    type="number"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(parseInt(e.target.value) || 12)}
+                    min={6}
+                    max={72}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.margin')}</label>
+                  <input
+                    type="number"
+                    value={margin}
+                    onChange={(e) => setMargin(parseInt(e.target.value) || 30)}
+                    min={10}
+                    max={100}
+                    className="w-full px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.color')}</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={fontColor}
+                    onChange={(e) => setFontColor(e.target.value)}
+                    className="w-10 h-10 p-0.5 cursor-pointer rounded border border-gray-300"
+                    disabled={isProcessing}
+                  />
+                  <input
+                    type="text"
+                    value={fontColor}
+                    onChange={(e) => setFontColor(e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-sm border rounded-md"
+                    disabled={isProcessing}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={skipFirstPage}
                   onChange={(e) => setSkipFirstPage(e.target.checked)}
-                  className="w-4 h-4"
+                  className="w-3.5 h-3.5"
                   disabled={isProcessing}
                 />
                 <span className="text-sm">{tTools('pageNumbers.skipFirstPage')}</span>
               </label>
+
+              {/* Odd/Even Page Mode */}
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <h4 className="text-sm font-semibold mb-2 text-gray-700">
+                  {tTools('pageNumbers.oddEvenTitle')}
+                </h4>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.pageMode')}</label>
+                    <select
+                      value={pageMode}
+                      onChange={(e) => setPageMode(e.target.value as typeof pageMode)}
+                      className="w-full px-2 py-1.5 text-sm border rounded-md"
+                      disabled={isProcessing}
+                    >
+                      <option value="all">{tTools('pageNumbers.modeAll')}</option>
+                      <option value="odd-only">{tTools('pageNumbers.modeOddOnly')}</option>
+                      <option value="even-only">{tTools('pageNumbers.modeEvenOnly')}</option>
+                      <option value="odd-even-different">{tTools('pageNumbers.modeDifferent')}</option>
+                    </select>
+                  </div>
+
+                  {pageMode === 'odd-even-different' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.oddPosition')}</label>
+                        <select
+                          value={oddPosition}
+                          onChange={(e) => setOddPosition(e.target.value as Position)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-md"
+                          disabled={isProcessing}
+                        >
+                          <option value="bottom-left">{tTools('pageNumbers.posBottomLeft')}</option>
+                          <option value="bottom-center">{tTools('pageNumbers.posBottomCenter')}</option>
+                          <option value="bottom-right">{tTools('pageNumbers.posBottomRight')}</option>
+                          <option value="top-left">{tTools('pageNumbers.posTopLeft')}</option>
+                          <option value="top-center">{tTools('pageNumbers.posTopCenter')}</option>
+                          <option value="top-right">{tTools('pageNumbers.posTopRight')}</option>
+                        </select>
+                        <p className="text-xs text-gray-500">{tTools('pageNumbers.oddPositionHint')}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">{tTools('pageNumbers.evenPosition')}</label>
+                        <select
+                          value={evenPosition}
+                          onChange={(e) => setEvenPosition(e.target.value as Position)}
+                          className="w-full px-2 py-1.5 text-sm border rounded-md"
+                          disabled={isProcessing}
+                        >
+                          <option value="bottom-left">{tTools('pageNumbers.posBottomLeft')}</option>
+                          <option value="bottom-center">{tTools('pageNumbers.posBottomCenter')}</option>
+                          <option value="bottom-right">{tTools('pageNumbers.posBottomRight')}</option>
+                          <option value="top-left">{tTools('pageNumbers.posTopLeft')}</option>
+                          <option value="top-center">{tTools('pageNumbers.posTopCenter')}</option>
+                          <option value="top-right">{tTools('pageNumbers.posTopRight')}</option>
+                        </select>
+                        <p className="text-xs text-gray-500">{tTools('pageNumbers.evenPositionHint')}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {pageMode === 'odd-even-different' && (
+                    <div className="p-2 bg-blue-50 rounded text-sm text-blue-700">
+                      <p>{tTools('pageNumbers.differentModeHint')}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </Card>
           </div>
 
@@ -584,10 +686,10 @@ export function PageNumbersTool({ className = '' }: PageNumbersToolProps) {
               </div>
 
               <div className="bg-gray-100 dark:bg-gray-800 rounded-[var(--radius-md)] p-4 overflow-auto" style={{ maxHeight: '600px', minHeight: '500px' }}>
-                <div 
+                <div
                   className="flex justify-center"
-                  style={{ 
-                    transform: `scale(${previewScale})`, 
+                  style={{
+                    transform: `scale(${previewScale})`,
                     transformOrigin: 'top center',
                     minHeight: previewScale < 1 ? 'auto' : undefined
                   }}

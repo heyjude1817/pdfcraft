@@ -81,7 +81,7 @@ export class PDFToGreyscaleProcessor extends BasePDFProcessor {
       this.updateProgress(5, 'Loading PDF libraries...');
 
       const [pdfLib, pdfjs] = await Promise.all([loadPdfLib(), loadPdfjs()]);
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -126,7 +126,7 @@ export class PDFToGreyscaleProcessor extends BasePDFProcessor {
 
         const pageNum = pagesToConvert[i];
         const pageProgress = 15 + (i * progressPerPage);
-        
+
         this.updateProgress(
           pageProgress,
           `Converting page ${pageNum} of ${totalPages} to greyscale...`
@@ -152,7 +152,7 @@ export class PDFToGreyscaleProcessor extends BasePDFProcessor {
       this.updateProgress(95, 'Saving PDF...');
 
       // Save the new PDF
-      const pdfBytes = await newPdfDoc.save();
+      const pdfBytes = await newPdfDoc.save({ useObjectStreams: true });
       const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
 
       this.updateProgress(100, 'Complete!');
@@ -245,14 +245,14 @@ export class PDFToGreyscaleProcessor extends BasePDFProcessor {
    */
   private applyGreyscale(imageData: ImageData, method: PDFToGreyscaleOptions['method']): void {
     const data = imageData.data;
-    
+
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      
+
       let grey: number;
-      
+
       switch (method) {
         case 'luminosity':
           // ITU-R BT.709 formula (most accurate for human perception)
@@ -269,7 +269,7 @@ export class PDFToGreyscaleProcessor extends BasePDFProcessor {
         default:
           grey = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
       }
-      
+
       data[i] = grey;     // R
       data[i + 1] = grey; // G
       data[i + 2] = grey; // B

@@ -69,7 +69,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
 
       // Load pdf-lib
       const pdfLib = await loadPdfLib();
-      
+
       if (this.checkCancelled()) {
         return this.createErrorOutput(
           PDFErrorCode.PROCESSING_CANCELLED,
@@ -81,7 +81,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
 
       const file = files[0];
       const arrayBuffer = await file.arrayBuffer();
-      
+
       // Load the source PDF
       let sourcePdf;
       try {
@@ -134,7 +134,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
 
         const range = splitOptions.ranges[i];
         const rangeProgress = 15 + (i * progressPerRange);
-        
+
         this.updateProgress(
           rangeProgress,
           `Extracting pages ${range.start}-${range.end}...`
@@ -142,7 +142,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
 
         // Create a new PDF for this range
         const newPdf = await pdfLib.PDFDocument.create();
-        
+
         // Get page indices (0-based)
         const pageIndices: number[] = [];
         for (let pageNum = range.start; pageNum <= range.end; pageNum++) {
@@ -156,7 +156,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
         }
 
         // Save the new PDF
-        const pdfBytes = await newPdf.save();
+        const pdfBytes = await newPdf.save({ useObjectStreams: true });
         const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
         outputBlobs.push(blob);
 
@@ -178,7 +178,7 @@ export class SplitPDFProcessor extends BasePDFProcessor {
       }
 
       this.updateProgress(100, 'Complete!');
-      
+
       return {
         success: true,
         result: outputBlobs,
@@ -213,25 +213,25 @@ export class SplitPDFProcessor extends BasePDFProcessor {
 function validatePageRanges(ranges: PageRange[], totalPages: number): string | null {
   for (let i = 0; i < ranges.length; i++) {
     const range = ranges[i];
-    
+
     // Check for valid range values
     if (range.start < 1) {
       return `Range ${i + 1}: Start page must be at least 1.`;
     }
-    
+
     if (range.end < range.start) {
       return `Range ${i + 1}: End page (${range.end}) cannot be less than start page (${range.start}).`;
     }
-    
+
     if (range.end > totalPages) {
       return `Range ${i + 1}: End page (${range.end}) exceeds total pages (${totalPages}).`;
     }
-    
+
     if (range.start > totalPages) {
       return `Range ${i + 1}: Start page (${range.start}) exceeds total pages (${totalPages}).`;
     }
   }
-  
+
   return null;
 }
 
@@ -254,14 +254,14 @@ function generateSplitFilename(
   totalRanges: number
 ): string {
   const baseName = getFileNameWithoutExtension(originalName);
-  
+
   if (totalRanges === 1) {
     if (range.start === range.end) {
       return `${baseName}_page_${range.start}.pdf`;
     }
     return `${baseName}_pages_${range.start}-${range.end}.pdf`;
   }
-  
+
   if (range.start === range.end) {
     return `${baseName}_part${rangeIndex}_page_${range.start}.pdf`;
   }
@@ -275,13 +275,13 @@ function generateSplitFilename(
 export function parsePageRanges(rangeString: string, totalPages: number): PageRange[] {
   const ranges: PageRange[] = [];
   const parts = rangeString.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  
+
   for (const part of parts) {
     if (part.includes('-')) {
       const [startStr, endStr] = part.split('-').map(s => s.trim());
       const start = parseInt(startStr, 10);
       const end = parseInt(endStr, 10);
-      
+
       if (!isNaN(start) && !isNaN(end)) {
         ranges.push({ start, end });
       }
@@ -292,7 +292,7 @@ export function parsePageRanges(rangeString: string, totalPages: number): PageRa
       }
     }
   }
-  
+
   return ranges;
 }
 
@@ -301,12 +301,12 @@ export function parsePageRanges(rangeString: string, totalPages: number): PageRa
  */
 export function createSplitEveryNPages(totalPages: number, n: number): PageRange[] {
   const ranges: PageRange[] = [];
-  
+
   for (let start = 1; start <= totalPages; start += n) {
     const end = Math.min(start + n - 1, totalPages);
     ranges.push({ start, end });
   }
-  
+
   return ranges;
 }
 
